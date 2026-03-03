@@ -8,7 +8,7 @@ rai 全記録データ.pdf から Day別フォロワー推移を抽出し、CSV/
 """
 
 from __future__ import annotations
-
+　
 import re
 import json
 from pathlib import Path
