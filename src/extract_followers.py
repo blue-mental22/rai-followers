@@ -91,7 +91,7 @@ def analyze(rows: List[Dict[str, int | str]]) -> Dict[str, object]:
     }
 
 
-def save_csv(rows: List[Dict[str, int | str]], out_path: Path) -> None:
+def  save_csv(rows: List[Dict[str, int | str]], out_path: Path) -> None:
     import csv
     with out_path.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["day","month","date_m_d","followers"])
