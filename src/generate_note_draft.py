@@ -289,11 +289,7 @@ def main() -> None:
     print(f"note記事の下書きを生成しました → {out_path}")
     print(f"文字数: 約{len(article)}文字")
     print()
-    # プレビュー（冒頭20行）
-    for line in article.split("\n")[:25]:
-        print(line)
-    print("...")
-    print(f"\n（全文は {out_path} をご覧ください）")
+    print(article)
 
 
 if __name__ == "__main__":
