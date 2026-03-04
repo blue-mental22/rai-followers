@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-分析データからnote記事（ノウハウ・How To型）の下書きMarkdownを生成する。
+分析データからnote記事（ノウハウ・How To型）の下書きを生成する。
 
-出力: output/note_draft.md
+出力:
+- output/note_draft.md       … Markdown版
+- output/note_draft_plain.txt … note.comに貼り付けられるプレーンテキスト版
 """
 
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -278,18 +281,104 @@ Threadsを始めて{s['total_days']}日。フォロワー{s['start']}人から�
     return article
 
 
+def md_to_plain(md: str) -> str:
+    """Markdown記法を除去してnote.comに貼れるプレーンテキストに変換する"""
+    lines = md.split("\n")
+    out = []
+    in_code_block = False
+
+    for line in lines:
+        # コードブロック開始/終了
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            out.append(line)
+            continue
+
+        # 水平線 --- → 空行
+        if re.match(r"^---+\s*$", line):
+            out.append("")
+            continue
+
+        # 見出し # → そのまま（#を除去）
+        m = re.match(r"^(#{1,3})\s+(.*)", line)
+        if m:
+            level = len(m.group(1))
+            text = m.group(2)
+            if level == 1:
+                out.append(text)
+                out.append("＝" * len(text))
+            elif level == 2:
+                out.append("")
+                out.append(f"■ {text}")
+            elif level == 3:
+                out.append("")
+                out.append(f"▸ {text}")
+            continue
+
+        # Markdownテーブル → 整形テキスト
+        if line.strip().startswith("|"):
+            # セパレータ行をスキップ
+            if re.match(r"^\|[\s\-|]+\|$", line.strip()):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            out.append("　".join(cells))
+            continue
+
+        # 引用 > → 「」でくくる
+        if line.startswith("> "):
+            out.append(line[2:])
+            continue
+        if line.strip() == ">":
+            out.append("")
+            continue
+
+        # 箇条書き - → ・
+        m = re.match(r"^- (.*)", line)
+        if m:
+            out.append(f"・{m.group(1)}")
+            continue
+
+        # 番号付きリスト
+        m = re.match(r"^(\d+)\.\s+(.*)", line)
+        if m:
+            out.append(f"{m.group(1)}. {m.group(2)}")
+            continue
+
+        out.append(line)
+
+    # **太字** と *イタリック* を除去
+    text = "\n".join(out)
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+
+    # 連続する3つ以上の空行を2つに
+    text = re.sub(r"\n{4,}", "\n\n\n", text)
+
+    return text.strip() + "\n"
+
+
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     daily = load_daily(CSV_PATH)
     stats = compute_stats(daily)
     article = generate_note(stats)
 
-    out_path = OUTPUT_DIR / "note_draft.md"
-    out_path.write_text(article, encoding="utf-8")
-    print(f"note記事の下書きを生成しました → {out_path}")
-    print(f"文字数: 約{len(article)}文字")
+    # Markdown版
+    md_path = OUTPUT_DIR / "note_draft.md"
+    md_path.write_text(article, encoding="utf-8")
+
+    # note.com用プレーンテキスト版
+    plain = md_to_plain(article)
+    plain_path = OUTPUT_DIR / "note_draft_plain.txt"
+    plain_path.write_text(plain, encoding="utf-8")
+
+    print(f"Markdown版  → {md_path}")
+    print(f"note貼付用  → {plain_path}")
+    print(f"文字数: 約{len(plain)}文字")
     print()
-    print(article)
+    print(plain)
 
 
 if __name__ == "__main__":
